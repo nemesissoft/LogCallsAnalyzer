@@ -31,7 +31,7 @@ namespace Sample
             var abstraction = (ILog)(typeof(LoggingAbstractions.Serilog.Log).GetConstructor(new[] { typeof(ILogger) })?.Invoke(new object[] { serilog }) ?? throw new NullReferenceException());
 
 
-            //LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
+            LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.InfoFormat((IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.Info((object) (IClientRequestInfo?)null, (Exception) "Hello, {Name}!");
 

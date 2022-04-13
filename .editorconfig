@@ -1,4 +1,8 @@
-﻿[*.cs]
+﻿root = true
 
-# EchoSerilog002: Property binding verifier
-dotnet_diagnostic.EchoSerilog002.severity = error
+[*.cs]
+
+# SerilogAnalyzer002: Property binding verifier
+dotnet_diagnostic.SerilogAnalyzer.severity = error
+
+dotnet_diagnostic.SerilogAnalyzer.LoggerAbstraction = LoggingAbstractions.ILog

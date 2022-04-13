@@ -3,7 +3,9 @@ using Microsoft.CodeAnalysis.Testing;
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing.Verifiers;
 
 namespace LogCallsAnalyzer.Tests.Verifiers
@@ -38,20 +40,10 @@ namespace LogCallsAnalyzer.Tests.Verifiers
 
         public class Test : CSharpCodeRefactoringTest<TCodeRefactoring, NUnitVerifier>
         {
-            public Test()
-            {
-                SolutionTransforms.Add((solution, projectId) =>
-                {
-                    if (solution.GetProject(projectId)?.CompilationOptions is { } compilationOptions)
-                    {
-                        compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
-                            compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper
-                                .NullableWarnings));
-                        solution = solution.WithProjectCompilationOptions(projectId, compilationOptions);
-                    }
-                    return solution;
-                });
-            }
+            public Test() => VerifierCommons.Setup(this);
+
+            protected override AnalyzerOptions GetAnalyzerOptions(Project project)
+                => VerifierCommons.AddAnalyzerOptions(base.GetAnalyzerOptions(project));
         }
     }
 }

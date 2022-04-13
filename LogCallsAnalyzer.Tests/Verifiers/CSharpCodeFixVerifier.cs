@@ -61,6 +61,8 @@ namespace LogCallsAnalyzer.Tests.Verifiers
         {
             public Test() => VerifierCommons.Setup(this);
 
+            protected override AnalyzerOptions GetAnalyzerOptions(Project project)
+                => VerifierCommons.AddAnalyzerOptions(base.GetAnalyzerOptions(project));
         }
     }
 }

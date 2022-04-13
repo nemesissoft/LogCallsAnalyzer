@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net5.0;net461</TargetFrameworks>
+		<TargetFrameworks>net461</TargetFrameworks>
 
 		<LangVersion>9.0</LangVersion>
 		<nullable>enable</nullable>
@@ -14,7 +14,7 @@
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
 		<PackageReference Include="NUnit" Version="3.13.2" />
 		<PackageReference Include="NUnit3TestAdapter" Version="4.1.0" />
-				
+	
 		
 		<PackageReference Include="Microsoft.CodeAnalysis" Version="4.0.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.NUnit" Version="1.1.0" />

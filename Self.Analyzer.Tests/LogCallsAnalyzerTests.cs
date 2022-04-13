@@ -12,7 +12,8 @@ using System.Threading.Tasks;
 using LogCallsAnalyzer;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Self.Analyzer.Tests
 {
@@ -22,14 +23,48 @@ namespace Self.Analyzer.Tests
         [Test]
         public async Task AnalyzeSolution()
         {
-            var solution = await OpenSolution("LogCallsAnalyzer.sln");
+            const string SOLUTION_FILE = "LogCallsAnalyzer.sln";
+            var (solution, solutionPath) = await OpenSolution(SOLUTION_FILE);
+
+            if (Path.GetDirectoryName(Path.GetFullPath(solutionPath)) is not { } directoryName || Path.Combine(directoryName, ".editorconfig") is not { } editorConfigFile || !File.Exists(editorConfigFile))
+            {
+                Assert.Fail("Cannot locate .editorconfig in solution directory");
+                return;
+            }
+
+            var editorConfig = LogCallsAnalyzer.Parser.AnalyzerConfig.Parse(await File.ReadAllTextAsync(editorConfigFile), editorConfigFile);
+            var editorConfigDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (editorConfig.GlobalSection is { } globalSection)
+                foreach (var (key, value) in globalSection.Properties)
+                    editorConfigDict[key] = value;
+
+            foreach (var section in editorConfig.NamedSections)
+                foreach (var (key, value) in section.Properties)
+                    editorConfigDict[key] = value;
+
+            var analyzerOptionsProvider = new KeyValueAnalyzerConfigOptionsProvider(editorConfigDict.Select(kvp => (kvp.Key, kvp.Value)));
+
+
 
             var diagnostics = new List<(string Project, string File, Diagnostic Diagnostic)>();
 
             foreach (var project in solution.Projects)
             {
+                if (Path.GetFileNameWithoutExtension(project.FilePath) is { } fileName &&
+                    (fileName.EndsWith(".Tests", StringComparison.Ordinal) || fileName.StartsWith("UnitTest", StringComparison.Ordinal) || fileName.StartsWith("LogCallsAnalyzer", StringComparison.Ordinal))
+                    )
+                    continue;
+
+
                 var compilation = await project.GetCompilationAsync();
                 if (compilation is null) continue;
+
+                var configuredLoggerTypeExist =
+                    editorConfigDict.TryGetValue(SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION, out var loggerTypeName) && compilation.GetTypeByMetadataName(loggerTypeName) != null;
+                var serilogAttributesAvailable = compilation.GetTypeByMetadataName("Serilog.Core.MessageTemplateFormatMethodAttribute") != null;
+
+                if (!configuredLoggerTypeExist && !serilogAttributesAvailable)
+                    Assert.Fail($"Project {project.Name}: Either Serilog attributes should be available in compilation time or top level .editorconfig file should have option {SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION} configured to existing type");
 
                 foreach (var syntaxTree in compilation.SyntaxTrees)
                 {
@@ -46,12 +81,12 @@ namespace Self.Analyzer.Tests
                     var filename = Path.GetFileName(syntaxTree.FilePath);
 
                     foreach (var invocation in invocations)
-                        foreach (var d in SerilogAnalyzer.GetDiagnostics(invocation, semanticModel))
+                        foreach (var d in SerilogAnalyzer.GetDiagnostics(analyzerOptionsProvider, invocation, semanticModel))
                             diagnostics.Add((project.Name, filename, d));
                 }
             }
 
-            Assert.That(diagnostics.Count == 0, () =>
+            Assert.That(diagnostics, Has.Count.EqualTo(0), () =>
 "| Project | File | Diagnostic | Message |" + Environment.NewLine +
 "|---------|------|------------|---------|" + Environment.NewLine +
 string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" + d.File + "|" + GetDiagnosticName(d.Diagnostic) + "|" + FormatDiagnostic(d.Diagnostic) + "|"))
@@ -96,7 +131,7 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
             return $"{prefix} {diagnostic.Id}";
         }
 
-        private static async Task<Solution> OpenSolution(string solutionName)
+        private static async Task<(Solution solution, string solutionPath)> OpenSolution(string solutionName)
         {
             var instance = SelectVisualStudioInstance(MSBuildLocator.QueryVisualStudioInstances());
             Console.WriteLine($"Using MSBuild at '{instance.MSBuildPath}' to load projects.");
@@ -115,10 +150,10 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
             var solutionPath = Path.Combine(GetParentDirectory(path, out _), solutionName);
 
             Console.WriteLine($"Loading solution '{solutionPath}'");
-            var solution = await workspace.OpenSolutionAsync(solutionPath, new ConsoleProgressReporter());
+            var solution = await workspace.OpenSolutionAsync(solutionPath/*, new ConsoleProgressReporter()*/);
             Console.WriteLine($"Finished loading solution '{solutionPath}'");
 
-            return solution;
+            return (solution, solutionPath);
 
             static string GetParentDirectory(string path, out DirectoryInfo dir)
             {
@@ -141,7 +176,27 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
             }
         }
 
-        private class ConsoleProgressReporter : IProgress<ProjectLoadProgress>
+        internal class KeyValueAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+        {
+            public KeyValueAnalyzerConfigOptionsProvider(IEnumerable<(string, string)> options) => GlobalOptions = new KeyValueAnalyzerConfigOptions(options);
+
+            public override AnalyzerConfigOptions GlobalOptions { get; }
+
+            public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+
+            public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+        }
+
+        internal class KeyValueAnalyzerConfigOptions : AnalyzerConfigOptions
+        {
+            private readonly Dictionary<string, string> _options;
+
+            public KeyValueAnalyzerConfigOptions(IEnumerable<(string key, string value)> options) => _options = options.ToDictionary(e => e.key, e => e.value);
+
+            public override bool TryGetValue(string key, [NotNullWhen(true)] out string? value) => _options.TryGetValue(key, out value);
+        }
+
+        /*private class ConsoleProgressReporter : IProgress<ProjectLoadProgress>
         {
             public void Report(ProjectLoadProgress loadProgress)
             {
@@ -153,6 +208,6 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
 
                 Console.WriteLine($"{loadProgress.Operation,-15} {loadProgress.ElapsedTime,-15:m\\:ss\\.fffffff} {projectDisplay}");
             }
-        }
+        }*/
     }
 }

@@ -17,15 +17,23 @@ namespace LogCallsAnalyzer
     {
         private static void AnalyzeSymbol(SyntaxNodeAnalysisContext context)
         {
-            var diagnostics = GetDiagnostics(context.Node, context.SemanticModel, context.CancellationToken);
+            var diagnostics = GetDiagnostics(context.Options.AnalyzerConfigOptionsProvider, context.Node, context.SemanticModel, context.CancellationToken);
 
             foreach (var diagnostic in diagnostics)
                 context.ReportDiagnostic(diagnostic);
         }
 
-        public static IEnumerable<Diagnostic> GetDiagnostics(SyntaxNode contextNode, SemanticModel semanticModel, CancellationToken cancellationToken = default)
+        public const string LOGGER_ABSTRACTION_OPTION = "dotnet_diagnostic.SerilogAnalyzer.LoggerAbstraction";
+        private static readonly string _loggerAbstractionOption = LOGGER_ABSTRACTION_OPTION.ToLower();
+
+        public static IEnumerable<Diagnostic> GetDiagnostics(AnalyzerConfigOptionsProvider configOptionsProvider, SyntaxNode contextNode, SemanticModel semanticModel, CancellationToken cancellationToken = default)
         {
-            if (!LoggingMethodMeta.TryBuildMeta(contextNode, semanticModel, out var invocation, out var compilation, out var meta, cancellationToken))
+            var loggerTypeName = configOptionsProvider.GetOptions(contextNode.SyntaxTree) is { } config &&
+                                 config.TryGetValue(_loggerAbstractionOption, out var loggerAbstraction)
+                ? loggerAbstraction : null;
+
+            if (!LoggingMethodMeta.TryBuildMeta(loggerTypeName, contextNode, semanticModel, out var invocation,
+                    out var compilation, out var meta, cancellationToken))
             {
                 yield break;
             }

@@ -9,10 +9,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="..\.editorconfig" Link=".editorconfig" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<!--TODO use package from package repository (not local nor pre-build) -->
 		<PackageReference Include="LogCallsAnalyzer" Version="1.0.0">
 			<PrivateAssets>all</PrivateAssets>

@@ -1,4 +1,7 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
@@ -34,6 +37,9 @@ namespace LogCallsAnalyzer.Tests.Verifiers
         public class Test : CSharpAnalyzerTest<TAnalyzer, NUnitVerifier>
         {
             public Test() => VerifierCommons.Setup(this);
+
+            protected override AnalyzerOptions GetAnalyzerOptions(Project project)
+                => VerifierCommons.AddAnalyzerOptions(base.GetAnalyzerOptions(project));
         }
     }
 }

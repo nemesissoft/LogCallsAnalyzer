@@ -1,6 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace LogCallsAnalyzer.Tests.Verifiers
@@ -41,6 +45,32 @@ namespace LogCallsAnalyzer.Tests.Verifiers
                 }
                 return solution;
             });
+        }
+
+        public static AnalyzerOptions AddAnalyzerOptions(AnalyzerOptions analyzerOptions) =>
+            new(analyzerOptions.AdditionalFiles, new KeyValueAnalyzerConfigOptionsProvider(new[]
+            {
+                (SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION.ToLower(), "LoggingAbstractions.ILog")
+            }));
+
+        internal class KeyValueAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+        {
+            public KeyValueAnalyzerConfigOptionsProvider(IEnumerable<(string, string)> options) => GlobalOptions = new KeyValueAnalyzerConfigOptions(options);
+
+            public override AnalyzerConfigOptions GlobalOptions { get; }
+
+            public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
+
+            public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
+        }
+
+        internal class KeyValueAnalyzerConfigOptions : AnalyzerConfigOptions
+        {
+            private readonly Dictionary<string, string> _options;
+
+            public KeyValueAnalyzerConfigOptions(IEnumerable<(string key, string value)> options) => _options = options.ToDictionary(e => e.key, e => e.value);
+
+            public override bool TryGetValue(string key, [NotNullWhen(true)] out string? value) => _options.TryGetValue(key, out value);
         }
     }
 }

@@ -30,13 +30,13 @@ namespace LogCallsAnalyzer.Helpers
             IsFormatMethod = Method.Name.EndsWith("Format");
             MessageTemplateName = messageTemplateName;
         }
-        
-        public static bool TryBuildMeta(in SyntaxNode node, in SemanticModel semanticModel,
+
+        public static bool TryBuildMeta(string? loggerTypeName, in SyntaxNode node, in SemanticModel semanticModel,
             [NotNullWhen(returnValue: true)] out InvocationExpressionSyntax? invocation,
             [NotNullWhen(returnValue: true)] out Compilation? compilation,
             out LoggingMethodMeta meta, CancellationToken token)
         {
-            invocation = default; compilation = default; meta = default;
+            invocation = default; compilation = default; meta = default; 
 
             if (node is not InvocationExpressionSyntax inv) { return false; }
             invocation = inv;
@@ -49,18 +49,23 @@ namespace LogCallsAnalyzer.Helpers
             // is it appropriate logging method?
             if (!LoggerMethods.Contains(method.Name)) return false;
 
-            if (compilation.GetTypeByMetadataName(LOGGER_TYPE_NAME1) is not { } type1) { return false; }
-            if (compilation.GetTypeByMetadataName(LOGGER_TYPE_NAME2) is not { } type2) { return false; }
-
-            var instanceType = method.ContainingType;
-            if (SymbolEqualityComparer.Default.Equals(instanceType, type1) || SymbolEqualityComparer.Default.Equals(instanceType, type2))
+            if (loggerTypeName != null)
             {
-                meta = new LoggingMethodMeta(method);
-                return true;
+                var loggerType = compilation.GetTypeByMetadataName(loggerTypeName);
+
+                if (loggerType == null) { return false; }
+
+                var instanceType = method.ContainingType;
+                if (SymbolEqualityComparer.Default.Equals(instanceType, loggerType))
+                {
+                    meta = new LoggingMethodMeta(method);
+                    return true;
+                }
             }
 
+
             // is serilog even present in the compilation?
-            var messageTemplateAttribute = semanticModel.Compilation.GetTypeByMetadataName("Serilog.Core.MessageTemplateFormatMethodAttribute");
+            var messageTemplateAttribute = compilation.GetTypeByMetadataName("Serilog.Core.MessageTemplateFormatMethodAttribute");
             if (messageTemplateAttribute == null) return false;
 
             // is it a serilog logging method?
@@ -71,9 +76,6 @@ namespace LogCallsAnalyzer.Helpers
             meta = new LoggingMethodMeta(method, messageTemplateName);
             return true;
         }
-
-        private const string LOGGER_TYPE_NAME1 = "LoggingAbstractions.ILog";
-        private const string LOGGER_TYPE_NAME2 = "LoggingAbstractions.Serilog.Log";
 
         public static readonly HashSet<string> LoggerMethods = new(new[]
         {
