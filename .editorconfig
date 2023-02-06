@@ -2,7 +2,7 @@
 
 [*.cs]
 
-# SerilogAnalyzer002: Property binding verifier
-dotnet_diagnostic.SerilogAnalyzer.severity = error
+dotnet_diagnostic.SerilogAnalyzer002.severity = error
+dotnet_diagnostic.SerilogAnalyzer003.severity = error
 
 dotnet_diagnostic.SerilogAnalyzer.LoggerAbstraction = LoggingAbstractions.ILog

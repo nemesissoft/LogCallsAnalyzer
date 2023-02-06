@@ -1,10 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-
 using LoggingAbstractions;
-
 using Serilog;
 using Serilog.Debugging;
 using Serilog.Formatting.Compact;
@@ -28,10 +27,16 @@ namespace Sample
                 .CreateLogger();
 
 
-            var abstraction = (ILog)(typeof(LoggingAbstractions.Serilog.Log).GetConstructor(new[] { typeof(ILogger) })?.Invoke(new object[] { serilog }) ?? throw new NullReferenceException());
+            var ctor = typeof(LoggingAbstractions.Serilog.Log).GetConstructor(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(ILogger) },
+                null
+                );
 
+            var abstraction = (ILog)ctor.Invoke(new object[] { serilog }) ?? throw new NullReferenceException();
 
-            LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
+            //LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.InfoFormat((IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.Info((object) (IClientRequestInfo?)null, (Exception) "Hello, {Name}!");
 
@@ -45,9 +50,23 @@ namespace Sample
             //serilog.Information("Hello, {Name}!", "Mike", "gfgfgf");
             //serilog.Information("Hello, {Name}{ABC}{SSS}!", "Mike", "gfgfgf");
 
-            serilog.Information("Hello, {Name}!", "Mike");
-            serilog.Information("Updating profile for {@User}", new UserData("123456", "Mike", "short", "pass"));
-            serilog.Information("Updating profile for {User}", new UserData("123456", "Mike", "short", "pass"));
+
+
+            var user = new UserData("123456", "Mike", "short", "pass");
+
+            serilog.Information("Updating profile for {@User}", user);
+            serilog.Information("Updating profile for {User}", user);
+
+            abstraction.InfoFormat("Updating profile for {@User}", user);
+            abstraction.InfoFormat("Updating profile for {User}", user);
+
+            //errors
+            //abstraction.InfoFormat("Updating profile for {User.Username}", user.Username);
+            //abstraction.InfoFormat($"Updating profile for {User.Username}", user.Username);
+
+            LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Updating profile for {@User}", user);
+            LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Updating profile for {User}", user);
+
 
             await writer.FlushAsync();
         }
