@@ -1,6 +1,9 @@
 <Project>
 	<PropertyGroup>
-		<LangVersion>9.0</LangVersion>
+		<LangVersion>10.0</LangVersion>
 		<nullable>enable</nullable>
+
+		<NoWarn>NU5105</NoWarn>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 </Project>

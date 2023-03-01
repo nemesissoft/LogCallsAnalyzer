@@ -1,19 +1,20 @@
-﻿using NUnit.Framework;
-using Microsoft.Build.Locator;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.MSBuild;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using LogCallsAnalyzer;
+using Microsoft.Build.Locator;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.MSBuild;
+using NUnit.Framework;
 
 namespace Self.Analyzer.Tests
 {
@@ -46,7 +47,7 @@ namespace Self.Analyzer.Tests
 
 
 
-            var diagnostics = new List<(string Project, string File, Diagnostic Diagnostic)>();
+            var diagnostics = new List<DiagnosticMeta>();
 
             foreach (var project in solution.Projects)
             {
@@ -82,9 +83,11 @@ namespace Self.Analyzer.Tests
 
                     foreach (var invocation in invocations)
                         foreach (var d in SerilogAnalyzer.GetDiagnostics(analyzerOptionsProvider, invocation, semanticModel))
-                            diagnostics.Add((project.Name, filename, d));
+                            diagnostics.Add(new(project.Name, filename, d));
                 }
             }
+
+            var csv = WriteAsCsv(diagnostics);
 
             Assert.That(diagnostics, Has.Count.EqualTo(0), () =>
 "| Project | File | Diagnostic | Message |" + Environment.NewLine +
@@ -93,28 +96,39 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
             );
         }
 
+        record struct DiagnosticMeta(string Project, string File, Diagnostic Diagnostic);
+
+        private static string WriteAsCsv(IEnumerable<DiagnosticMeta> diagnostics)
+        {
+            static string FormatAsCsv(string text) =>
+                text.Replace(';', ' ').Replace('\r', ' ').Replace('\n', ' ');
+
+            int i = 0;
+
+            return diagnostics.Aggregate(
+                new StringBuilder("Number;Project;File;Diagnostic;Message").AppendLine(),
+                (sb, dm) => sb.AppendLine(
+                    $"{++i};{FormatAsCsv(dm.Project)};{FormatAsCsv(dm.File)};{FormatAsCsv(GetDiagnosticName(dm.Diagnostic))};{FormatAsCsv(FormatDiagnostic(dm.Diagnostic))}"
+                ),
+                sb => sb.ToString()
+                );
+        }
+
         private static string FormatDiagnostic(Diagnostic diagnostic)
         {
             if (diagnostic == null) throw new ArgumentNullException(nameof(diagnostic));
 
             var culture = CultureInfo.InvariantCulture;
 
-            switch (diagnostic.Location.Kind)
-            {
-                case LocationKind.SourceFile:
-                case LocationKind.XmlFile:
-                case LocationKind.ExternalFile:
-                    var span = diagnostic.Location.GetLineSpan();
-                    var mappedSpan = diagnostic.Location.GetMappedLineSpan();
-                    if (!span.IsValid || !mappedSpan.IsValid)
-                        goto default;
+            var location = diagnostic.Location;
 
-                    return FormattableString.Invariant(
-                        $"({mappedSpan.Span.Start.Line + 1},{mappedSpan.Span.Start.Character + 1}): {diagnostic.GetMessage(culture)}");
-
-                default:
-                    return diagnostic.GetMessage(culture);
-            }
+            return (location.Kind is LocationKind.SourceFile or LocationKind.XmlFile or LocationKind.ExternalFile) &&
+                    location.GetLineSpan() is FileLinePositionSpan span &&
+                    location.GetMappedLineSpan() is FileLinePositionSpan mappedSpan &&
+                    span.IsValid && mappedSpan.IsValid
+                ? FormattableString.Invariant(
+                    $"({mappedSpan.Span.Start.Line + 1},{mappedSpan.Span.Start.Character + 1}): {diagnostic.GetMessage(culture)}")
+                : diagnostic.GetMessage(culture);
         }
 
         private static string GetDiagnosticName(Diagnostic diagnostic)

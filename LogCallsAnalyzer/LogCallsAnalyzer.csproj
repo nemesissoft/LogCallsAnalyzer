@@ -3,19 +3,14 @@
 	<PropertyGroup>
 		<!--Analysers need to target netstandard2.0-->
 		<TargetFramework>netstandard2.0</TargetFramework>
-
-		<LangVersion>9.0</LangVersion>
-		<nullable>enable</nullable>
-
+		
 		<IsPackable>false</IsPackable>
 
 		<!-- Avoid ID conflicts with the package project. -->
 		<PackageId>*$(MSBuildProjectFile)*</PackageId>
 
 		<AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
-
-		<NoWarn>NU5105</NoWarn>
-		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		
 		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
 	</PropertyGroup>
 
