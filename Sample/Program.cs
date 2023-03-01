@@ -39,6 +39,7 @@ namespace Sample
             //LogHelper.InfoFormat(abstraction, (IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.InfoFormat((IClientRequestInfo?)null, "Hello, {Name}!", "Mike", "123");
             //abstraction.Info((object) (IClientRequestInfo?)null, (Exception) "Hello, {Name}!");
+            abstraction.InfoFormat("{Name}" + 15 + "{Age}", 1, 2);
 
             //abstraction.InfoFormat("Evaluated as {2} [Sym={0} Prop={1}] Eval={2}", "Q", "W", "E");
 

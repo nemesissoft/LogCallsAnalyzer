@@ -1,13 +1,13 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
-using System.Linq;
-using Microsoft.CodeAnalysis.CSharp;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using LogCallsAnalyzer.Helpers;
 using LogCallsAnalyzer.Parser;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 
 namespace LogCallsAnalyzer
@@ -23,13 +23,12 @@ namespace LogCallsAnalyzer
                 context.ReportDiagnostic(diagnostic);
         }
 
-        public const string LOGGER_ABSTRACTION_OPTION = "dotnet_diagnostic.SerilogAnalyzer.LoggerAbstraction";
-        private static readonly string _loggerAbstractionOption = LOGGER_ABSTRACTION_OPTION.ToLower();
+        public const string LOGGER_ABSTRACTION_OPTION = "dotnet_diagnostic.seriloganalyzer.loggerabstraction";
 
         public static IEnumerable<Diagnostic> GetDiagnostics(AnalyzerConfigOptionsProvider configOptionsProvider, SyntaxNode contextNode, SemanticModel semanticModel, CancellationToken cancellationToken = default)
         {
             var loggerTypeName = configOptionsProvider.GetOptions(contextNode.SyntaxTree) is { } config &&
-                                 config.TryGetValue(_loggerAbstractionOption, out var loggerAbstraction)
+                                 config.TryGetValue(LOGGER_ABSTRACTION_OPTION, out var loggerAbstraction)
                 ? loggerAbstraction : null;
 
             if (!LoggingMethodMeta.TryBuildMeta(loggerTypeName, contextNode, semanticModel, out var invocation,

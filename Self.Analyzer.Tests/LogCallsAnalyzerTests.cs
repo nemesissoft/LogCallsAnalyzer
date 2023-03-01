@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -12,7 +11,6 @@ using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
 using NUnit.Framework;
 
@@ -33,19 +31,7 @@ namespace Self.Analyzer.Tests
                 return;
             }
 
-            var editorConfig = LogCallsAnalyzer.Parser.AnalyzerConfig.Parse(await File.ReadAllTextAsync(editorConfigFile), editorConfigFile);
-            var editorConfigDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (editorConfig.GlobalSection is { } globalSection)
-                foreach (var (key, value) in globalSection.Properties)
-                    editorConfigDict[key] = value;
-
-            foreach (var section in editorConfig.NamedSections)
-                foreach (var (key, value) in section.Properties)
-                    editorConfigDict[key] = value;
-
-            var analyzerOptionsProvider = new KeyValueAnalyzerConfigOptionsProvider(editorConfigDict.Select(kvp => (kvp.Key, kvp.Value)));
-
-
+            var analyzerOptionsProvider = KeyValueAnalyzerConfigOptionsProvider.ReadEditorConfig(editorConfigFile);
 
             var diagnostics = new List<DiagnosticMeta>();
 
@@ -56,12 +42,13 @@ namespace Self.Analyzer.Tests
                     )
                     continue;
 
-
                 var compilation = await project.GetCompilationAsync();
                 if (compilation is null) continue;
 
                 var configuredLoggerTypeExist =
-                    editorConfigDict.TryGetValue(SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION, out var loggerTypeName) && compilation.GetTypeByMetadataName(loggerTypeName) != null;
+                    analyzerOptionsProvider.GlobalOptions.TryGetValue(SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION, out var loggerTypeName) &&
+                    compilation.GetTypeByMetadataName(loggerTypeName) != null;
+
                 var serilogAttributesAvailable = compilation.GetTypeByMetadataName("Serilog.Core.MessageTemplateFormatMethodAttribute") != null;
 
                 if (!configuredLoggerTypeExist && !serilogAttributesAvailable)
@@ -83,17 +70,53 @@ namespace Self.Analyzer.Tests
 
                     foreach (var invocation in invocations)
                         foreach (var d in SerilogAnalyzer.GetDiagnostics(analyzerOptionsProvider, invocation, semanticModel))
-                            diagnostics.Add(new(project.Name, filename, d));
+                        {
+                            if (
+                                analyzerOptionsProvider.GetOptions(invocation.SyntaxTree) is { } options &&
+                                options.TryGetValue($"dotnet_diagnostic.{d.Id.ToLower()}.severity", out var effectiveSeverity) &&
+                                !string.IsNullOrWhiteSpace(effectiveSeverity)
+                                )
+                                diagnostics.Add(new(project.Name, filename, WithSeverity(d, effectiveSeverity)));
+                            else
+                                diagnostics.Add(new(project.Name, filename, d));
+                        }
+
                 }
             }
 
             var csv = WriteAsCsv(diagnostics);
 
-            Assert.That(diagnostics, Has.Count.EqualTo(0), () =>
+            var errorAndWarnDiagnostics = diagnostics
+                .Where(d => d.Diagnostic.Severity is DiagnosticSeverity.Warning or DiagnosticSeverity.Error)
+                .ToList();
+
+            Assert.That(errorAndWarnDiagnostics, Has.Count.EqualTo(0), () =>
 "| Project | File | Diagnostic | Message |" + Environment.NewLine +
 "|---------|------|------------|---------|" + Environment.NewLine +
-string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" + d.File + "|" + GetDiagnosticName(d.Diagnostic) + "|" + FormatDiagnostic(d.Diagnostic) + "|"))
+string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d => $"|{d.Project}|{d.File}|{GetDiagnosticName(d.Diagnostic)}|{FormatDiagnostic(d.Diagnostic)}|"))
             );
+        }
+
+        private Diagnostic WithSeverity(Diagnostic d, string effectiveSeverityText)
+        {
+            var effectiveSeverity = effectiveSeverityText.ToLower() switch
+            {
+                "error" => DiagnosticSeverity.Error,
+                "warning" => DiagnosticSeverity.Warning,
+                "suggestion" => DiagnosticSeverity.Info,
+                _ => DiagnosticSeverity.Hidden,
+            };
+            if (effectiveSeverity == d.Severity)
+            {
+                return d;
+            }
+            else
+            {
+                var method = d.GetType().GetMethod("WithSeverity", BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    ?? throw new MissingMethodException(d.GetType().FullName, "WithSeverity");
+                return (Diagnostic)method.Invoke(d, new object[] { effectiveSeverity })!;
+            }
+
         }
 
         record struct DiagnosticMeta(string Project, string File, Diagnostic Diagnostic);
@@ -189,39 +212,5 @@ string.Join(Environment.NewLine, diagnostics.Select(d => "|" + d.Project + "|" +
                 return max;
             }
         }
-
-        internal class KeyValueAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
-        {
-            public KeyValueAnalyzerConfigOptionsProvider(IEnumerable<(string, string)> options) => GlobalOptions = new KeyValueAnalyzerConfigOptions(options);
-
-            public override AnalyzerConfigOptions GlobalOptions { get; }
-
-            public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
-
-            public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
-        }
-
-        internal class KeyValueAnalyzerConfigOptions : AnalyzerConfigOptions
-        {
-            private readonly Dictionary<string, string> _options;
-
-            public KeyValueAnalyzerConfigOptions(IEnumerable<(string key, string value)> options) => _options = options.ToDictionary(e => e.key, e => e.value);
-
-            public override bool TryGetValue(string key, [NotNullWhen(true)] out string? value) => _options.TryGetValue(key, out value);
-        }
-
-        /*private class ConsoleProgressReporter : IProgress<ProjectLoadProgress>
-        {
-            public void Report(ProjectLoadProgress loadProgress)
-            {
-                var projectDisplay = Path.GetFileName(loadProgress.FilePath);
-                if (loadProgress.TargetFramework != null)
-                {
-                    projectDisplay += $" ({loadProgress.TargetFramework})";
-                }
-
-                Console.WriteLine($"{loadProgress.Operation,-15} {loadProgress.ElapsedTime,-15:m\\:ss\\.fffffff} {projectDisplay}");
-            }
-        }*/
     }
 }

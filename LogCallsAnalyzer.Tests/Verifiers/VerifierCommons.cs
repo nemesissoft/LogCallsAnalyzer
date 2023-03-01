@@ -50,7 +50,7 @@ namespace LogCallsAnalyzer.Tests.Verifiers
         public static AnalyzerOptions AddAnalyzerOptions(AnalyzerOptions analyzerOptions) =>
             new(analyzerOptions.AdditionalFiles, new KeyValueAnalyzerConfigOptionsProvider(new[]
             {
-                (SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION.ToLower(), "LoggingAbstractions.ILog")
+                (SerilogAnalyzer.LOGGER_ABSTRACTION_OPTION, "LoggingAbstractions.ILog")
             }));
 
         internal class KeyValueAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
