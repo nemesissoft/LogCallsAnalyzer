@@ -93,7 +93,8 @@ namespace Self.Analyzer.Tests
             Assert.That(errorAndWarnDiagnostics, Has.Count.EqualTo(0), () =>
 "| Project | File | Diagnostic | Message |" + Environment.NewLine +
 "|---------|------|------------|---------|" + Environment.NewLine +
-string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d => $"|{d.Project}|{d.File}|{GetDiagnosticName(d.Diagnostic)}|{FormatDiagnostic(d.Diagnostic)}|"))
+string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d =>
+    $"|{d.Project}|{d.File}{FormatLocation(d.Diagnostic)}|{GetDiagnosticName(d.Diagnostic)}|{FormatDiagnostic(d.Diagnostic)}|"))
             );
         }
 
@@ -131,7 +132,7 @@ string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d => $"|{d.Proje
             return diagnostics.Aggregate(
                 new StringBuilder("Number;Project;File;Diagnostic;Message").AppendLine(),
                 (sb, dm) => sb.AppendLine(
-                    $"{++i};{FormatAsCsv(dm.Project)};{FormatAsCsv(dm.File)};{FormatAsCsv(GetDiagnosticName(dm.Diagnostic))};{FormatAsCsv(FormatDiagnostic(dm.Diagnostic))}"
+                    $"{++i};{FormatAsCsv(dm.Project)};{FormatAsCsv(dm.File + FormatLocation(dm.Diagnostic))};{FormatAsCsv(GetDiagnosticName(dm.Diagnostic))};{FormatAsCsv(FormatDiagnostic(dm.Diagnostic))}"
                 ),
                 sb => sb.ToString()
                 );
@@ -141,17 +142,29 @@ string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d => $"|{d.Proje
         {
             if (diagnostic == null) throw new ArgumentNullException(nameof(diagnostic));
 
-            var culture = CultureInfo.InvariantCulture;
-
-            var location = diagnostic.Location;
-
-            return (location.Kind is LocationKind.SourceFile or LocationKind.XmlFile or LocationKind.ExternalFile) &&
-                    location.GetLineSpan() is FileLinePositionSpan span &&
-                    location.GetMappedLineSpan() is FileLinePositionSpan mappedSpan &&
-                    span.IsValid && mappedSpan.IsValid
+            return TryGetLocation(diagnostic.Location, out var line, out var character)
                 ? FormattableString.Invariant(
-                    $"({mappedSpan.Span.Start.Line + 1},{mappedSpan.Span.Start.Character + 1}): {diagnostic.GetMessage(culture)}")
-                : diagnostic.GetMessage(culture);
+                    $"({line},{character}): {diagnostic.GetMessage(CultureInfo.InvariantCulture)}")
+                : diagnostic.GetMessage(CultureInfo.InvariantCulture);
+        }
+
+        private static string FormatLocation(Diagnostic diagnostic) =>
+            TryGetLocation(diagnostic.Location, out var line, out var character) ? $" {line} {character}" : "";
+
+        private static bool TryGetLocation(Location location, out int line, out int character)
+        {
+            line = character = 0;
+            if ((location.Kind is LocationKind.SourceFile or LocationKind.XmlFile or LocationKind.ExternalFile) &&
+                location.GetLineSpan() is FileLinePositionSpan span &&
+                location.GetMappedLineSpan() is FileLinePositionSpan mappedSpan &&
+                span.IsValid && mappedSpan.IsValid
+            )
+            {
+                line = mappedSpan.Span.Start.Line + 1;
+                character = mappedSpan.Span.Start.Character + 1;
+                return true;
+            }
+            else return false;
         }
 
         private static string GetDiagnosticName(Diagnostic diagnostic)

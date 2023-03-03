@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#nullable disable
+using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -70,7 +70,7 @@ namespace LogCallsAnalyzer.Tests.Verifiers
 
             public KeyValueAnalyzerConfigOptions(IEnumerable<(string key, string value)> options) => _options = options.ToDictionary(e => e.key, e => e.value);
 
-            public override bool TryGetValue(string key, [NotNullWhen(true)] out string? value) => _options.TryGetValue(key, out value);
+            public override bool TryGetValue(string key, out string value) => _options.TryGetValue(key, out value);
         }
     }
 }

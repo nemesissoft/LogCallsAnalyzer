@@ -32,7 +32,7 @@ namespace Sample
                 null,
                 new[] { typeof(ILogger) },
                 null
-                );
+                ) ?? throw new MissingMemberException(nameof(LoggingAbstractions.Serilog.Log), "ctor()");
 
             var abstraction = (ILog)ctor.Invoke(new object[] { serilog }) ?? throw new NullReferenceException();
 
