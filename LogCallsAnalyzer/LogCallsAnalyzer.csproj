@@ -4,14 +4,19 @@
 		<!--Analysers need to target netstandard2.0-->
 		<TargetFramework>netstandard2.0</TargetFramework>
 		
-		<IsPackable>false</IsPackable>
-
-		<!-- Avoid ID conflicts with the package project. -->
-		<PackageId>*$(MSBuildProjectFile)*</PackageId>
-
 		<AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
 		
 		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+
+
+		<!-- Avoid ID conflicts with the package project. -->
+		<PackageId>LogCallsAnalyzer.Core</PackageId>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<Authors>Michał Bryłka</Authors>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<Description>Contains various analysers that test message templates and log method calls for structured logging. Packed as core dependency</Description>
+		<PackageTags>Analyzer, analyzers, logging, serilog</PackageTags>
+		
 	</PropertyGroup>
 
 

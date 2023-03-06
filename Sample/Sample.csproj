@@ -7,10 +7,11 @@
 
 	<ItemGroup>
 		<!--TODO use package from package repository (not local nor pre-build) -->
-		<!--<PackageReference Include="LogCallsAnalyzer" Version="1.0.0">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>-->
+		<PackageReference Include="LogCallsAnalyzer" Version="1.0.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		
 
 		<PackageReference Include="Serilog" Version="2.10.0" />
 		<PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
