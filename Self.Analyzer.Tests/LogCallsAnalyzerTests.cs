@@ -98,7 +98,7 @@ string.Join(Environment.NewLine, errorAndWarnDiagnostics.Select(d =>
             );
         }
 
-        private Diagnostic WithSeverity(Diagnostic d, string effectiveSeverityText)
+        private static Diagnostic WithSeverity(Diagnostic d, string effectiveSeverityText)
         {
             var effectiveSeverity = effectiveSeverityText.ToLower() switch
             {

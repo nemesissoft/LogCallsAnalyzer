@@ -3,6 +3,6 @@
 [*.cs]
 
 dotnet_diagnostic.SerilogAnalyzer002.severity = error
-dotnet_diagnostic.SerilogAnalyzer003.severity = error
+dotnet_diagnostic.SerilogAnalyzer003.severity = suggestion
 
 dotnet_diagnostic.SerilogAnalyzer.LoggerAbstraction = LoggingAbstractions.ILog
